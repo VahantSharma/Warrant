@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+dist/
+coverage/
+playwright-report/
+test-results/
+*.log
+.DS_Store
+
+# secrets — never commit
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+keys/
