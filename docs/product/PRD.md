@@ -14,7 +14,7 @@ but there's no working developer-level implementation on its APIs.
 ## Personas (fictional, consistent across UI, seed data, video)
 - **Maya Rao — owner of "Ember & Oat Café".** Busy; wants her restock agent to buy supplies weekly without
   surprise charges. Cares about: control, simplicity, "what did it spend?".
-- **Daniel — ops lead at "Bean & Brew Supply"** (a wholesale supplier, the PayPal merchant). Sells to cafés;
+- **Daniel — ops lead at "Bean Brew Supply"** (a wholesale supplier, the PayPal merchant). Sells to cafés;
   increasingly receives agent orders. Cares about: not eating disputes for purchases the customer authorized.
 - **The restock agent** — an AI agent acting for Maya. Has its own signing key (light KYA).
 
@@ -48,15 +48,18 @@ but there's no working developer-level implementation on its APIs.
 5. **Verify** (`/verify/[mandateId]`, public)
    - Recomputes signatures and the ledger hash chain server-side and shows ✓/✗ per link. Anyone (a judge) can check.
 6. **Demo** (`/demo`)
-   - Guided 6-step tour with a "Reset demo" button that re-seeds data. Works with no login. Uses pre-provisioned
-     sandbox buyer credentials (shown in Devpost testing instructions, not in the repo).
+   - Guided 6-step tour, finishable by a stranger in < 2 minutes. Two lanes: **full lane** (judge approves the hold in the
+     real PayPal v6 popup with sandbox buyer credentials from the Devpost testing instructions) and **fast lane** (a
+     pre-approved sandbox hold from a pool, clearly labelled). Nightly reset.
 
 ## Scenarios (each must work and be scriptable)
 - **S1 Happy path:** mandate $200 → agent buys oat milk ×6 + 12-oz cups ×4 boxes → PASS → captures.
-- **S2 Injection blocked:** agent reads poisoned listing → proposes 50 units → BLOCK (deterministic) and judge flags injection.
-- **S3 Semantic mismatch → step-up:** agent proposes 16-oz cups when mandate says 12-oz → judge downgrades to ESCALATE → Maya declines.
+- **S2 Injection blocked:** agent reads poisoned listing → proposes 50 units → BLOCK (deterministic C4/C6) and judge flags injection.
+  Because a good model may simply ignore the injection, `/demo` also has **"Simulate a hijacked agent"** (labelled) which submits the
+  injected cart straight to the gate — proving money is safe even if the agent is fully compromised.
+- **S3 Semantic mismatch → step-up:** merchant marks 12-oz cups out of stock → agent substitutes 16-oz cups → judge downgrades to ESCALATE → Maya declines.
 - **S4 Dispute, agent within mandate:** buyer disputes capture ("didn't authorize this") → triage WITHIN_MANDATE → evidence submitted via Disputes API.
-- **S5 Dispute, merchant fault:** Bean & Brew shipped a substitute (fulfillment record mismatches cart) → triage MERCHANT_FAULT → accept claim → refund.
+- **S5 Dispute, merchant fault:** Bean Brew shipped a substitute (fulfillment record mismatches cart) → triage MERCHANT_FAULT → accept claim → refund.
 - **S6 Expiry:** mandate window ends → cron voids the remaining authorization → Maya sees "$X released".
 
 ## Functional requirements (MUST for v1)
@@ -64,7 +67,7 @@ but there's no working developer-level implementation on its APIs.
   `search_catalog`, `get_product`, `propose_cart` only. F4 Policy Gate (deterministic + veto-only judge). F5 Partial
   capture service with DB-enforced cap and idempotency. F6 Step-up approvals. F7 Ledger (hash chain + signatures)
   and `/verify`. F8 Webhook ingest with signature verification. F9 Dispute ingest, triage, evidence PDF,
-  provide-evidence, accept-claim. F10 Expiry void cron. F11 `/demo` + reset. F12 Hosted on Render until Dec 15.
+  provide-evidence, accept-claim. F10 Expiry void cron. F11 `/demo` + reset. F12 Hosted on Vercel Hobby + Neon free until Dec 15 (zero cost). F13 Graceful, labelled AI fallbacks when free quotas run out (invariant 9).
 
 ## SHOULD (after core loop gate, Nov 2)
 - S-1 AG Studio analytics + Studio agent. S-2 Passkey signing of mandates. S-3 Reauthorize flow for long mandates.

@@ -1,5 +1,5 @@
 # ADR 001 — One Next.js app (TypeScript) on Render
-Date: 2026-10-22 · Status: accepted
+Date: 2026-10-22 · Status: accepted (hosting superseded by ADR 008 → Vercel Hobby + Neon free)
 
 ## Context
 Solo builder, ~21 days, part-time. Judges read code and open a hosted URL. PayPal JS SDK, AG Studio (React) and the Vercel AI SDK are all first-class in the JS ecosystem. The owner works in JS/Node daily.

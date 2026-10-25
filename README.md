@@ -20,10 +20,10 @@ signed record — so merchants stop paying for agent mistakes by default.
 
 | AI component | Why it is necessary (not decorative) |
 |---|---|
-| Mandate compiler (Claude) | Turns "restock oat milk and 12-oz cups, under $200, approved suppliers, this week" into a structured, signable mandate |
-| Intent-match judge (Claude) | Semantic check rules can't do ("16-oz ≠ 12-oz cups"). **Veto-only** — it can block or escalate, never approve money |
-| Shopping agent (Claude + tools) | Searches the catalog and proposes carts; has no ability to capture money |
-| Evidence Desk agent (Claude + PayPal Agent Toolkit) | Triages disputes against the signed record and writes the representment narrative |
+| Mandate compiler (Gemini, free tier) | Turns "restock oat milk and 12-oz cups, under $200, approved suppliers, this week" into a structured, signable mandate |
+| Intent-match judge (Gemini → Groq fallback) | Semantic check rules can't do ("16-oz ≠ 12-oz cups"). **Veto-only** — it can block or escalate, never approve money |
+| Shopping agent (Gemini + tools) | Searches the catalog and proposes carts; has no ability to capture money |
+| Evidence Desk agent (LLM + PayPal Agent Toolkit, read-only) | Triages disputes against the signed record and writes the representment narrative |
 
 ## The problem (Potential Impact)
 TODO — cite PayPal Agentic Commerce Pulse Report (Apr 2026): nearly two-thirds of merchants say a standardized
@@ -46,4 +46,4 @@ TODO — ≤5 commands. Sandbox test buyer credentials for judges are in the Dev
 TODO — single-merchant scope (multi-merchant needs PayPal Commerce Platform), server-held signing key in demo (passkeys next), not full W3C VC stack.
 
 ## Built during the hackathon
-All code written Oct 2026 for the PayPal AI Hackathon. AI used in the product: Claude via the Anthropic API (mandate compiler, intent-match judge, shopping agent, Evidence Desk narrative).
+All code written Oct 2026 for the PayPal AI Hackathon. AI used in the product: Google Gemini (primary) and Groq (fallback) free tiers via the Vercel AI SDK — the whole stack runs at $0.

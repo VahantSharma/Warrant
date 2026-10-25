@@ -1,6 +1,6 @@
 # Warrant — Architecture (v1)
 
-One Next.js app (App Router) + Postgres, deployed on Render. Server-side only for anything touching
+One Next.js app (App Router) + Postgres (Neon free), deployed on Vercel Hobby — all free tiers (ADR 008). Server-side only for anything touching
 PayPal, signing keys, or the LLM. See ADRs in `adr/` for the reasoning behind each choice.
 
 ## Components
@@ -97,6 +97,10 @@ after a crash is safe.
   evidence_pdf_url, outcome, timestamps)
 - `ledger_events` (seq bigserial, mandate_id, type, payload jsonb, prev_hash, hash, signature, actor, created_at)
 - `webhook_events` (paypal_event_id unique, type, verified bool, raw jsonb, processed_at) — dedupe
+- `ai_usage` (day, provider, calls, tokens_in, tokens_out) — enforces self-imposed daily caps (ADR 008)
+- `ai_cache` (key = sha256(task|model|canonical input), output jsonb, provider, model, created_at) — demo path only, always labelled
+- `rate_limits` (bucket = ip|route|hour, count) — per-IP limits without Redis
+- `approvals` (id, cart_id, requested_at, decided_at, decision, decided_by, signature) — step-up decisions
 
 ## Ledger
 `hash_n = SHA-256( prev_hash_{n-1} || canonical_json(payload_n) )` per mandate chain (genesis prev_hash =
@@ -107,13 +111,40 @@ Canonical JSON = RFC 8785 (JCS) via a small vetted library.
 - Secrets server-only; `NEXT_PUBLIC_*` limited to PayPal client ID (and AG Grid license if required by the lib).
 - All PayPal POSTs idempotent; webhooks verified and deduped.
 - LLM inputs from the catalog are treated as untrusted data (wrapped/delimited); the agent has no money tools.
-- Per-IP rate limit + `AI_MAX_CALLS_PER_RUN` + Anthropic spend cap (protect the hosted demo during judging).
+- Per-IP rate limit (Postgres counter) + `AI_MAX_CALLS_PER_RUN` + per-provider daily call caps set below free quotas (protect the hosted demo during judging).
 - Demo roles via signed cookie, no real auth (document as limitation).
 
 ## Observability
 - Structured logs (pino) with mandate/cart/capture IDs and PayPal `debug_id` on every PayPal error.
 - `/api/health` checks DB + PayPal token fetch (cached) for the uptime monitor.
 
-## Deployment (Render)
-- Web service (non-sleeping instance), managed Postgres (non-expiring plan), cron job (expiry voids + nightly demo reset).
-- Webhook URL = `https://<app>.onrender.com/api/webhooks/paypal` registered in the PayPal sandbox app.
+## AI layer (`src/lib/ai/`) — free tiers, provider-agnostic
+```mermaid
+flowchart LR
+  Caller[compiler / agent / judge / narrative] --> AI[ai.run(task, input)]
+  AI --> Budget{daily cap left?}
+  Budget -->|yes| P1[Google Gemini free]
+  P1 -->|429 / 5xx / timeout / invalid JSON x2| P2[Groq free]
+  P2 -->|fails| FB[Honest fallback per task]
+  Budget -->|no| FB
+  AI --> Cache[(ai_cache: demo path only)]
+  AI --> Usage[(ai_usage: calls per provider per day)]
+```
+- One entry point per task (`compileMandate`, `runShoppingAgent`, `judgeIntent`, `writeDisputeNarrative`) with a zod output schema.
+- Fallback per task: judge → `ESCALATE` (fail closed); compiler → empty editable form + "use example"; narrative → deterministic template;
+  agent → "AI busy, try in a minute" + guided demo offers the labelled cached run.
+- Every AI output stored with `provider`, `model`, `latency_ms`, `cached` → shown in UI and ledger (judges see real AI).
+- `AI_PROVIDER=fixture` replays recorded outputs for unit tests (zero quota use).
+- Evals (`pnpm eval`): fixture-free live run of ~25 labelled cases (injection, look-alike SKUs, over-quantity, benign) against the judge
+  and compiler; must pass thresholds before prompt/model changes merge. Results committed to `docs/research/EVALS.md`.
+
+## Deployment (Vercel Hobby + Neon free)
+- Vercel project from the owner's personal GitHub repo; env vars set in the Vercel dashboard (never in git).
+- Runtime: Node.js for all routes touching PayPal/DB/signing (not Edge). `maxDuration` ≤ 300 s; agent runs are kept short (≤ 8 steps).
+- Neon: pooled connection string for the app, direct string for `drizzle-kit migrate`. Interactive transactions must work with the
+  chosen driver — proven by a concurrent-transaction test before any money path uses it.
+- Crons (`vercel.json`, once per day max on Hobby): `/api/cron/sweep` (expire mandates → void remainder; reconcile PENDING captures;
+  sync disputes) and `/api/cron/demo-reset`. Both require `Authorization: Bearer $CRON_SECRET`.
+- Because crons are daily: **lazy expiry** on every mandate read, **"Sync with PayPal"** button + sync on Evidence Desk load, webhooks for real-time.
+- Webhook URL = `https://<project>.vercel.app/api/webhooks/paypal` registered in the PayPal sandbox app.
+- UptimeRobot (free) pings `/api/health` every 5 min → alerts + keeps functions/DB warm.

@@ -23,5 +23,9 @@ date + debug ID recorded here. If a demo-critical assumption fails, escalate to 
 4. **spike-04 webhooks:** subscribe to `CHECKOUT.ORDER.APPROVED`, `PAYMENT.AUTHORIZATION.CREATED`, `PAYMENT.AUTHORIZATION.VOIDED`, `PAYMENT.CAPTURE.COMPLETED`, `PAYMENT.CAPTURE.REFUNDED`, `CUSTOMER.DISPUTE.CREATED`, `CUSTOMER.DISPUTE.UPDATED`, `CUSTOMER.DISPUTE.RESOLVED`. Verify signatures via `/v1/notifications/verify-webhook-signature`. Note: events fired from the dashboard **simulator** are not verifiable — test with real sandbox actions.
 5. **spike-05 Agent Toolkit:** which dispute/order/transaction tools exist in `@paypal/agent-toolkit` for the AI SDK; confirm we can enable a **read-only subset** (list/get disputes, get order, list transactions) and keep money-moving tools disabled.
 
+6. **spike-06 free LLMs:** for each configured free model (Gemini Flash variants, Groq gpt-oss/qwen): structured output 10/10 valid against
+   the judge schema; a 3-tool calling loop completes; p50/p95 latency; exact 429 response shape and `retry-after`; real limits from the consoles.
+   Pick primary/fallback per task and write the result here and in `.env.example` comments.
+
 ## Findings log (append; newest first)
 <!-- YYYY-MM-DD · spike-NN · result · debug_id(s) · implication -->
